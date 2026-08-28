@@ -5,6 +5,7 @@ import {
   DebateTurn, 
   FinalConsensusReport, 
   PipelineStep,
+  ActiveAppMode,
   AgentId
 } from './types';
 import { SAMPLE_CANDIDATES, SampleCandidatePreset } from './lib/mockData';
@@ -14,9 +15,11 @@ import { ProfileBuilder } from './components/ProfileBuilder';
 import { IndependentReviews } from './components/IndependentReviews';
 import { DebateRoom } from './components/DebateRoom';
 import { FinalDecisionReport } from './components/FinalDecisionReport';
-import { Sparkles, Key, Zap, ShieldCheck, FileText, Users, MessageSquare, Award } from 'lucide-react';
+import { LiveInterviewStage } from './components/LiveInterviewStage';
+import { Sparkles, Key, Zap, ShieldCheck, FileText, Users, MessageSquare, Award, Radio } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const [appMode, setAppMode] = useState<ActiveAppMode>('pipeline');
   const [step, setStep] = useState<PipelineStep>('profile');
   const [useDemoMode, setUseDemoMode] = useState(true);
   const [apiKey, setApiKey] = useState('');
@@ -53,7 +56,7 @@ export const App: React.FC = () => {
         const agentIds: AgentId[] = ['technical', 'culture', 'hiring_manager', 'skeptic'];
         const results: Record<string, IndependentOpinion> = {};
 
-        // Parallel isolated LLM calls (Rule: separate LLM calls, no agent sees another's output)
+        // Parallel isolated LLM calls
         await Promise.all(
           agentIds.map(async (id) => {
             const opinion = await geminiService.evaluateIndependently(id, profile);
@@ -132,6 +135,16 @@ export const App: React.FC = () => {
     setStep('profile');
   };
 
+  // Live Interview Mode -> Pipeline transition
+  const handleConcludeLiveInterview = (generatedTranscript: string) => {
+    setCandidateProfile(prev => ({
+      ...prev,
+      transcriptText: generatedTranscript
+    }));
+    setAppMode('pipeline');
+    setStep('profile');
+  };
+
   const STEPS_NAV = [
     { id: 'profile', label: '1. Fact Extractor', icon: FileText },
     { id: 'independent_review', label: '2. 4 Independent Agents', icon: Users },
@@ -158,26 +171,55 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Pipeline Step Progress Indicator */}
-        <div className="hidden lg:flex items-center gap-1 bg-boardroom-850 p-1 rounded-xl border border-slate-800">
-          {STEPS_NAV.map((s) => {
-            const Icon = s.icon;
-            const isActive = step === s.id;
-            return (
-              <div
-                key={s.id}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  isActive
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'text-slate-400'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{s.label}</span>
-              </div>
-            );
-          })}
+        {/* Mode Switcher: Pipeline vs Live Hot Seat */}
+        <div className="flex items-center gap-1 bg-boardroom-850 p-1 rounded-2xl border border-slate-800">
+          <button
+            onClick={() => setAppMode('pipeline')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              appMode === 'pipeline'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Award className="w-3.5 h-3.5" />
+            <span>4-Agent Committee Pipeline</span>
+          </button>
+
+          <button
+            onClick={() => setAppMode('live_interview')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              appMode === 'live_interview'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5 text-pink-400" />
+            <span>Live Interactive Hot Seat</span>
+          </button>
         </div>
+
+        {/* Pipeline Step Progress Indicator (when in pipeline mode) */}
+        {appMode === 'pipeline' && (
+          <div className="hidden xl:flex items-center gap-1 bg-boardroom-850 p-1 rounded-xl border border-slate-800">
+            {STEPS_NAV.map((s) => {
+              const Icon = s.icon;
+              const isActive = step === s.id;
+              return (
+                <div
+                  key={s.id}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{s.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Mode Toggle & API Key */}
         <div className="flex items-center gap-3">
@@ -205,15 +247,15 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* API Key Modal if opened */}
+      {/* API Key Modal */}
       {showKeyModal && (
         <div className="fixed inset-0 z-50 bg-boardroom-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-boardroom-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+          <div className="bg-boardroom-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <Key className="w-5 h-5 text-indigo-400" /> Configure Gemini API Key
             </h3>
             <p className="text-xs text-slate-400">
-              Enter your Google Gemini API Key for live LLM evaluations.
+              Enter your Google Gemini API Key for live parallel LLM reasoning.
             </p>
             <input
               type="password"
@@ -234,35 +276,49 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Pipeline Stages */}
+      {/* Application Content */}
       <main className="flex-1 py-4 md:py-6">
-        {step === 'profile' && (
-          <ProfileBuilder onProceed={handleProceedToReviews} isLoading={isLoading} />
+        {/* MODE 1: 4-AGENT COMMITTEE PIPELINE */}
+        {appMode === 'pipeline' && (
+          <>
+            {step === 'profile' && (
+              <ProfileBuilder onProceed={handleProceedToReviews} isLoading={isLoading} />
+            )}
+
+            {step === 'independent_review' && (
+              <IndependentReviews
+                profile={candidateProfile}
+                opinions={opinions}
+                onStartDebate={handleStartDebate}
+                onBack={() => setStep('profile')}
+                isLoading={isLoading}
+              />
+            )}
+
+            {step === 'debate' && (
+              <DebateRoom
+                debateTurns={debateTurns}
+                onSynthesizeFinalReport={handleSynthesizeFinalReport}
+                onBack={() => setStep('independent_review')}
+                isLoading={isLoading}
+              />
+            )}
+
+            {step === 'final_report' && (
+              <FinalDecisionReport
+                report={finalReport}
+                onRestart={handleRestart}
+              />
+            )}
+          </>
         )}
 
-        {step === 'independent_review' && (
-          <IndependentReviews
-            profile={candidateProfile}
-            opinions={opinions}
-            onStartDebate={handleStartDebate}
-            onBack={() => setStep('profile')}
-            isLoading={isLoading}
-          />
-        )}
-
-        {step === 'debate' && (
-          <DebateRoom
-            debateTurns={debateTurns}
-            onSynthesizeFinalReport={handleSynthesizeFinalReport}
-            onBack={() => setStep('independent_review')}
-            isLoading={isLoading}
-          />
-        )}
-
-        {step === 'final_report' && (
-          <FinalDecisionReport
-            report={finalReport}
-            onRestart={handleRestart}
+        {/* MODE 2: LIVE INTERACTIVE HOT SEAT */}
+        {appMode === 'live_interview' && (
+          <LiveInterviewStage
+            candidateName={candidateProfile.candidateName}
+            targetRole={candidateProfile.targetRole}
+            onConcludeToPipeline={handleConcludeLiveInterview}
           />
         )}
       </main>

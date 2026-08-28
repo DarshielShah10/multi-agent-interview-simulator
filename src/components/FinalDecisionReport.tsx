@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FinalConsensusReport } from '../types';
 import { AGENT_PROFILES } from '../lib/agents';
+import { RadarChart } from './RadarChart';
 import { 
   Award, 
   CheckCircle, 
@@ -13,7 +14,8 @@ import {
   Quote, 
   Scale, 
   HelpCircle,
-  Sparkles 
+  Sparkles,
+  Printer
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -27,6 +29,7 @@ export const FinalDecisionReport: React.FC<FinalDecisionReportProps> = ({
   onRestart,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [inspectedQuote, setInspectedQuote] = useState<string | null>(null);
 
   useEffect(() => {
     if (report.finalRecommendation === 'Strong Hire' || report.finalRecommendation === 'Hire') {
@@ -98,6 +101,10 @@ ${Object.entries(report.individualAgentFinalVotes).map(([agentId, vote]) => `- *
     downloadAnchor.remove();
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6 text-slate-100 animate-in fade-in duration-300">
       {/* Top Banner */}
@@ -153,6 +160,51 @@ ${Object.entries(report.individualAgentFinalVotes).map(([agentId, vote]) => `- *
         </div>
       </div>
 
+      {/* Visual Competency Radar & Dimension Scores */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="lg:col-span-5 flex flex-col justify-center">
+          <RadarChart
+            scores={{
+              technical: report.dimensionScores.technicalCompetence.score,
+              culture: report.dimensionScores.culturalIntegrity.score,
+              roi: report.dimensionScores.businessImpactROI.score,
+              riskInverse: report.dimensionScores.riskFactorInverse.score,
+            }}
+          />
+        </div>
+
+        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {Object.entries(report.dimensionScores).map(([key, dim]) => {
+            const labelsMap: Record<string, string> = {
+              technicalCompetence: 'Technical Depth & Architecture',
+              culturalIntegrity: 'Cultural Integrity & Teamwork',
+              businessImpactROI: 'Business Impact & Delivery ROI',
+              riskFactorInverse: 'Integrity / Risk Mitigation',
+            };
+
+            return (
+              <div key={key} className="bg-boardroom-900 border border-slate-800 rounded-2xl p-4 space-y-2 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-white">{labelsMap[key] || key}</span>
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60">
+                      {dim.score} / {dim.maxScore}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-boardroom-800 rounded-full overflow-hidden mb-2">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 rounded-full"
+                      style={{ width: `${(dim.score / dim.maxScore) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="text-[10px] text-slate-400 font-mono">Weight in decision: {Math.round(dim.weight * 100)}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Strengths and Concerns */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Strengths */}
@@ -166,10 +218,14 @@ ${Object.entries(report.individualAgentFinalVotes).map(([agentId, vote]) => `- *
                 <span className="font-bold text-xs text-white block">{st.title}</span>
                 <p className="text-xs text-slate-300 leading-relaxed">{st.detail}</p>
                 {st.supportingQuote && (
-                  <div className="flex items-start gap-1.5 text-[11px] text-slate-400 italic bg-boardroom-900 p-2 rounded-xl border border-slate-800">
-                    <Quote className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" />
+                  <button
+                    type="button"
+                    onClick={() => setInspectedQuote(st.supportingQuote)}
+                    className="w-full text-left flex items-start gap-1.5 text-[11px] text-slate-400 hover:text-indigo-300 italic bg-boardroom-900 p-2.5 rounded-xl border border-slate-800 hover:border-indigo-500/50 transition-colors"
+                  >
+                    <Quote className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                     <span>{st.supportingQuote}</span>
-                  </div>
+                  </button>
                 )}
               </div>
             ))}
@@ -181,29 +237,37 @@ ${Object.entries(report.individualAgentFinalVotes).map(([agentId, vote]) => `- *
           <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" /> Red Flags & Critical Concerns
           </h3>
-          <div className="space-y-3">
-            {report.criticalConcerns.map((cr, i) => (
-              <div key={i} className="p-3.5 rounded-2xl bg-boardroom-850 border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-white">{cr.title}</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
-                    cr.severity === 'high'
-                      ? 'bg-rose-950 text-rose-400 border-rose-800'
-                      : 'bg-amber-950 text-amber-400 border-amber-800'
-                  }`}>
-                    {cr.severity} risk
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">{cr.detail}</p>
-                {cr.supportingQuote && (
-                  <div className="flex items-start gap-1.5 text-[11px] text-slate-400 italic bg-boardroom-900 p-2 rounded-xl border border-slate-800">
-                    <Quote className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
-                    <span>{cr.supportingQuote}</span>
+          {report.criticalConcerns.length === 0 ? (
+            <p className="text-xs text-slate-400 italic p-3">Zero critical integrity or technical red flags detected.</p>
+          ) : (
+            <div className="space-y-3">
+              {report.criticalConcerns.map((cr, i) => (
+                <div key={i} className="p-3.5 rounded-2xl bg-boardroom-850 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-white">{cr.title}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                      cr.severity === 'high'
+                        ? 'bg-rose-950 text-rose-400 border-rose-800'
+                        : 'bg-amber-950 text-amber-400 border-amber-800'
+                    }`}>
+                      {cr.severity} risk
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  <p className="text-xs text-slate-300 leading-relaxed">{cr.detail}</p>
+                  {cr.supportingQuote && (
+                    <button
+                      type="button"
+                      onClick={() => setInspectedQuote(cr.supportingQuote)}
+                      className="w-full text-left flex items-start gap-1.5 text-[11px] text-slate-400 hover:text-amber-300 italic bg-boardroom-900 p-2.5 rounded-xl border border-slate-800 hover:border-amber-500/50 transition-colors"
+                    >
+                      <Quote className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                      <span>{cr.supportingQuote}</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -214,7 +278,7 @@ ${Object.entries(report.individualAgentFinalVotes).map(([agentId, vote]) => `- *
         </h3>
         {report.unresolvedDisagreements.length === 0 ? (
           <p className="text-xs text-slate-400 italic">
-            Complete consensus reached. No major unresolved faction disagreements remained after the debate stage.
+            Complete consensus reached. No unresolved faction disagreements remained after the debate stage.
           </p>
         ) : (
           <div className="space-y-3">
@@ -287,6 +351,31 @@ ${Object.entries(report.individualAgentFinalVotes).map(([agentId, vote]) => `- *
         </div>
       </div>
 
+      {/* Quote Inspector Modal */}
+      {inspectedQuote && (
+        <div className="fixed inset-0 z-50 bg-boardroom-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-boardroom-900 border border-indigo-500/40 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+            <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
+              <Quote className="w-4 h-4" /> Verbatim Transcript Evidence Inspector
+            </div>
+            <p className="text-sm text-slate-100 italic bg-boardroom-850 p-4 rounded-2xl border border-slate-800 leading-relaxed">
+              "{inspectedQuote}"
+            </p>
+            <p className="text-xs text-slate-400">
+              Verified ground-truth evidence anchor extracted directly from candidate dialogue transcript.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setInspectedQuote(null)}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
+              >
+                Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Action Footer */}
       <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-800">
         <button
@@ -297,13 +386,21 @@ ${Object.entries(report.individualAgentFinalVotes).map(([agentId, vote]) => `- *
           <span>Evaluate Another Candidate</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handlePrint}
+            className="px-4 py-2.5 rounded-xl bg-boardroom-850 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print Dossier</span>
+          </button>
+
           <button
             onClick={handleCopyMarkdown}
             className="px-4 py-2.5 rounded-xl bg-boardroom-850 border border-slate-700 hover:border-indigo-500/50 text-indigo-300 text-xs font-semibold flex items-center gap-2 transition-all"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
-            <span>{copied ? 'Copied Markdown!' : 'Copy Markdown Summary'}</span>
+            <span>{copied ? 'Copied!' : 'Copy Markdown'}</span>
           </button>
 
           <button
@@ -311,7 +408,7 @@ ${Object.entries(report.individualAgentFinalVotes).map(([agentId, vote]) => `- *
             className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Download JSON Report</span>
+            <span>Download JSON</span>
           </button>
         </div>
       </div>

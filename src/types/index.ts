@@ -2,6 +2,8 @@ export type AgentId = 'technical' | 'culture' | 'hiring_manager' | 'skeptic';
 
 export type HiringStance = 'Strong Hire' | 'Hire' | 'Leaning No Hire' | 'Reject';
 
+export type InterviewerMood = 'neutral' | 'impressed' | 'skeptical' | 'probing' | 'satisfied';
+
 export interface AgentProfile {
   id: AgentId;
   name: string;
@@ -67,7 +69,7 @@ export interface FinalConsensusReport {
   finalRecommendation: HiringStance;
   overallConfidence: number; // 0-100%
   decisionRationale: string;
-  evidenceWeightingExplanation: string; // Explains why simple averaging was not used
+  evidenceWeightingExplanation: string;
   dimensionScores: {
     technicalCompetence: { score: number; maxScore: number; weight: number };
     culturalIntegrity: { score: number; maxScore: number; weight: number };
@@ -85,5 +87,24 @@ export interface FinalConsensusReport {
   }>;
 }
 
-export type AppMode = 'pipeline' | 'live_panel';
+// Live Interview Stage Types
+export interface LiveChatMessage {
+  id: string;
+  speaker: AgentId | 'candidate';
+  text: string;
+  timestamp: string;
+  topic?: string;
+}
+
+export interface BackchannelWhisper {
+  id: string;
+  senderId: AgentId;
+  targetId?: AgentId;
+  timestamp: string;
+  thought: string;
+  flag: 'gap' | 'strength' | 'handoff' | 'probing';
+  quoteAnchor?: string;
+}
+
+export type ActiveAppMode = 'pipeline' | 'live_interview';
 export type PipelineStep = 'profile' | 'independent_review' | 'debate' | 'final_report';

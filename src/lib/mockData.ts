@@ -387,5 +387,171 @@ Skills: Multi-region Kubernetes, Raft Consensus, Distributed Databases, Terrafor
         skeptic: { initialStance: 'Reject', finalStance: 'Reject', finalVerdict: 'Surfaced core contradictions that dismantled the candidate profile.', changedMind: false }
       }
     }
+  },
+  {
+    id: 'candidate-ai',
+    name: 'Priya Sharma',
+    targetRole: 'Staff AI / MLOps Infrastructure Architect',
+    description: 'Specializes in low-latency LLM inference pipelines, multi-agent orchestration, and semantic caching.',
+    tag: 'AI Platform Case',
+    profile: {
+      candidateName: 'Priya Sharma',
+      targetRole: 'Staff AI / MLOps Infrastructure Architect',
+      experienceYears: 8,
+      resumeText: `Priya Sharma — Staff AI Infrastructure Engineer
+Experience:
+- AI Platform Lead at NexusAI (2022 - Present): Built multi-tenant LLM serving gateway with semantic caching and vLLM batching. Cut token costs by 42%.
+- Senior Machine Learning Engineer at Synthetix (2019 - 2022): Scaled vector search index over 50M embeddings with sub-20ms p99 SLA.
+Skills: LLM Orchestration, Semantic Caching, vLLM, Vector DBs (Qdrant, Milvus), Python, Rust, Kubernetes GPU Schedulers.`,
+      transcriptText: `[Interviewer]: When orchestrating multi-agent graph workflows with cyclic dependencies, how did you prevent infinite reasoning loops and rate-limit exhaustion?
+[Priya Sharma]: "We implemented an explicit directed acyclic state machine with a hard recursion depth limit of 8 steps and budget token caps per run. Furthermore, we deployed an exact & semantic Redis cache tier that intercepts redundant subagent queries, saving over 40% of downstream API invocations."
+
+[Interviewer]: How did you handle GPU cluster fragmentation when multiple fine-tuning jobs collided with real-time inference?
+[Priya Sharma]: "We separated the workloads onto isolated node pools with MIG (Multi-Instance GPU) slicing on our NVIDIA A100s for inference while batch jobs queued on preemptible spot instances."
+
+[Interviewer]: What was the biggest disagreement you had with product leadership?
+[Priya Sharma]: "Product wanted to ship an ungrounded generative feature in 2 weeks. I pushed back with benchmark data showing a 14% hallucination rate, proposed a 1-week delay to integrate RAG retrieval verification, and presented the safety risk matrix to executive leadership."`,
+      extractedFacts: {
+        verifiedSkills: ['vLLM', 'Semantic Caching', 'NVIDIA MIG Slicing', 'Vector Search', 'Multi-Agent State Machines'],
+        claimedAchievements: ['Reduced token inference costs by 42%', 'Engineered 50M vector index with sub-20ms latency', 'Instituted RAG safety gates'],
+        workHistory: ['AI Platform Lead @ NexusAI (3 yrs)', 'Senior MLE @ Synthetix (3 yrs)'],
+        directQuotes: [
+          '"We implemented an explicit directed acyclic state machine with a hard recursion depth limit of 8 steps and budget token caps"',
+          '"We separated workloads onto isolated node pools with MIG slicing on NVIDIA A100s for inference while batch jobs queued on preemptible spot instances."',
+          '"I pushed back with benchmark data showing a 14% hallucination rate, proposed a 1-week delay to integrate RAG retrieval verification"'
+        ]
+      }
+    },
+    independentOpinions: {
+      technical: {
+        agentId: 'technical',
+        stance: 'Strong Hire',
+        confidenceScore: 95,
+        summary: 'Mastery of contemporary AI serving architectures, GPU hardware slicing, and deterministic agent graph boundaries.',
+        keyPoints: [
+          {
+            point: 'Engineered robust agent recursion guardrails and semantic caching tiers.',
+            citedQuote: '"We implemented an explicit directed acyclic state machine with a hard recursion depth limit of 8 steps and budget token caps"',
+            sentiment: 'positive'
+          },
+          {
+            point: 'Demonstrated deep infrastructure knowledge of NVIDIA MIG and GPU memory fragmentation.',
+            citedQuote: '"separated workloads onto isolated node pools with MIG slicing on NVIDIA A100s"',
+            sentiment: 'positive'
+          }
+        ]
+      },
+      culture: {
+        agentId: 'culture',
+        stance: 'Strong Hire',
+        confidenceScore: 91,
+        summary: 'Exemplary ethics and customer trust advocacy; grounded product pushback in empirical safety metrics.',
+        keyPoints: [
+          {
+            point: 'Constructively challenged executive pressure using benchmark hallucination telemetry.',
+            citedQuote: '"I pushed back with benchmark data showing a 14% hallucination rate, proposed a 1-week delay to integrate RAG retrieval verification"',
+            sentiment: 'positive'
+          }
+        ]
+      },
+      hiring_manager: {
+        agentId: 'hiring_manager',
+        stance: 'Strong Hire',
+        confidenceScore: 92,
+        summary: 'Massive cost-reduction track record (42% token savings) and strong alignment on AI business reliability.',
+        keyPoints: [
+          {
+            point: 'Direct business ROI through GPU spot instance orchestration and semantic cache hit rates.',
+            citedQuote: '"saving over 40% of downstream API invocations"',
+            sentiment: 'positive'
+          }
+        ]
+      },
+      skeptic: {
+        agentId: 'skeptic',
+        stance: 'Hire',
+        confidenceScore: 84,
+        summary: 'All claims regarding token reduction and vector indexing were substantiated with concrete GPU architectures.',
+        keyPoints: [
+          {
+            point: 'Valid architectural explanation of GPU scheduling under mixed batch and inference workloads.',
+            citedQuote: '"batch jobs queued on preemptible spot instances"',
+            sentiment: 'positive'
+          }
+        ]
+      }
+    },
+    debateTurns: [
+      {
+        id: 'deb-p1',
+        speakerId: 'technical',
+        targetAgentId: 'hiring_manager',
+        responseType: 'agreement',
+        speech: "Priya's grasp of modern LLMOps infrastructure is exceptional. Her implementation of MIG slicing combined with DAG recursion limits proves she can design our next-generation agent platform.",
+        revisedStance: 'Strong Hire',
+        revisedConfidence: 96
+      },
+      {
+        id: 'deb-p2',
+        speakerId: 'skeptic',
+        targetAgentId: 'technical',
+        responseType: 'agreement',
+        speech: "I looked closely at the 42% cost reduction claim to see if it was just vendor marketing. Her breakdown of semantic cache intercept logic confirms it was genuine architectural optimization.",
+        revisedStance: 'Strong Hire',
+        revisedConfidence: 90
+      },
+      {
+        id: 'deb-p3',
+        speakerId: 'culture',
+        targetAgentId: 'hiring_manager',
+        responseType: 'agreement',
+        speech: "Her moral courage to push back against premature feature launches (*'pushed back with benchmark data showing a 14% hallucination rate'*) is the exact leadership signal our AI team needs.",
+        revisedStance: 'Strong Hire',
+        revisedConfidence: 94
+      },
+      {
+        id: 'deb-p4',
+        speakerId: 'hiring_manager',
+        targetAgentId: 'culture',
+        responseType: 'agreement',
+        speech: "Unanimous agreement across all 4 criteria. Priya represents our highest-confidence hiring signal for the Staff AI Infrastructure role.",
+        revisedStance: 'Strong Hire',
+        revisedConfidence: 96
+      }
+    ],
+    finalReport: {
+      candidateName: 'Priya Sharma',
+      targetRole: 'Staff AI / MLOps Infrastructure Architect',
+      finalRecommendation: 'Strong Hire',
+      overallConfidence: 95,
+      decisionRationale: 'Unanimous top-tier recommendation. Priya demonstrated world-class competence in GPU infrastructure, multi-agent state machines, semantic caching, and responsible AI safety governance.',
+      evidenceWeightingExplanation: 'High scores across GPU hardware allocation, cost ROI metrics, and safety benchmarks created an unambiguous Strong Hire signal with zero detected integrity risks.',
+      dimensionScores: {
+        technicalCompetence: { score: 9.7, maxScore: 10, weight: 0.35 },
+        culturalIntegrity: { score: 9.3, maxScore: 10, weight: 0.25 },
+        businessImpactROI: { score: 9.5, maxScore: 10, weight: 0.25 },
+        riskFactorInverse: { score: 9.4, maxScore: 10, weight: 0.15 }
+      },
+      keyStrengths: [
+        {
+          title: 'Advanced AI Infrastructure & GPU Slicing',
+          detail: 'Architected mixed-workload GPU clusters using NVIDIA MIG slicing for sub-20ms inference combined with preemptible spot batch nodes.',
+          supportingQuote: '"We separated workloads onto isolated node pools with MIG slicing on NVIDIA A100s for inference while batch jobs queued on preemptible spot instances."'
+        },
+        {
+          title: 'Responsible AI Leadership & Safety Governance',
+          detail: 'Defended customer trust by refusing to release unverified generative features, leveraging empirical hallucination telemetry.',
+          supportingQuote: '"I pushed back with benchmark data showing a 14% hallucination rate, proposed a 1-week delay to integrate RAG retrieval verification"'
+        }
+      ],
+      criticalConcerns: [],
+      unresolvedDisagreements: [],
+      individualAgentFinalVotes: {
+        technical: { initialStance: 'Strong Hire', finalStance: 'Strong Hire', finalVerdict: 'Unsurpassed knowledge of multi-agent state machines and GPU architectures.', changedMind: false },
+        culture: { initialStance: 'Strong Hire', finalStance: 'Strong Hire', finalVerdict: 'Outstanding ethical standards and data-driven product alignment.', changedMind: false },
+        hiring_manager: { initialStance: 'Strong Hire', finalStance: 'Strong Hire', finalVerdict: 'Proven 42% cost reduction track record and elite engineering leadership.', changedMind: false },
+        skeptic: { initialStance: 'Hire', finalStance: 'Strong Hire', finalVerdict: 'All technical assertions and cost savings verified.', changedMind: true }
+      }
+    }
   }
 ];
