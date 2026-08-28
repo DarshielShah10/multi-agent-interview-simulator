@@ -1,13 +1,13 @@
-import { ChatMessage, InterviewerId, BackchannelNote, CommitteeTurn, CandidateEvaluation, InterviewConfig } from '../types';
+import { 
+  AgentId, 
+  CandidateProfileData, 
+  IndependentOpinion, 
+  DebateTurn, 
+  FinalConsensusReport 
+} from '../types';
+import { AGENT_PROFILES } from './agents';
 
-interface AgentTurnResponse {
-  nextSpeaker: InterviewerId;
-  question: string;
-  topic: string;
-  backchannelNotes: BackchannelNote[];
-}
-
-export class GeminiOrchestrator {
+export class GeminiPipelineService {
   private apiKey: string;
   private model: string;
 
@@ -24,7 +24,7 @@ export class GeminiOrchestrator {
     return Boolean(this.apiKey && this.apiKey.trim().length > 10);
   }
 
-  private async generateContent(prompt: string, systemInstruction?: string): Promise<string> {
+  private async generateJSON<T>(prompt: string, systemInstruction: string): Promise<T> {
     if (!this.apiKey) {
       throw new Error('Gemini API key is required');
     }
@@ -32,23 +32,14 @@ export class GeminiOrchestrator {
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
 
     const requestBody: any = {
-      contents: [
-        {
-          parts: [{ text: prompt }]
-        }
-      ],
+      contents: [{ parts: [{ text: prompt }] }],
+      systemInstruction: { parts: [{ text: systemInstruction }] },
       generationConfig: {
-        temperature: 0.7,
+        temperature: 0.6,
         topP: 0.95,
-        responseMimeType: "application/json",
+        responseMimeType: "application/json"
       }
     };
-
-    if (systemInstruction) {
-      requestBody.systemInstruction = {
-        parts: [{ text: systemInstruction }]
-      };
-    }
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -58,7 +49,7 @@ export class GeminiOrchestrator {
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+      throw new Error(`Gemini API error (${response.status}): ${errText}`);
     }
 
     const data = await response.json();
@@ -66,142 +57,215 @@ export class GeminiOrchestrator {
     if (!rawText) {
       throw new Error('Empty response from Gemini');
     }
-    return rawText;
+    return JSON.parse(rawText) as T;
   }
 
-  public async processCandidateResponse(
-    history: ChatMessage[],
-    lastCandidateAnswer: string,
-    config: InterviewConfig
-  ): Promise<AgentTurnResponse> {
-    const formattedHistory = history.map(m => `[${m.speaker.toUpperCase()}]: ${m.text}`).join('\n');
+  // 1. Candidate Profile Fact Extractor
+  public async extractProfileFacts(
+    resumeText: string,
+    transcriptText: string,
+    candidateName: string,
+    targetRole: string
+  ): Promise<CandidateProfileData['extractedFacts']> {
+    const systemInstruction = `You are a Candidate Fact Extraction Agent.
+Your job is to read the resume and interview transcript and pull out objective facts and claims into structured lists:
+- verifiedSkills: specific technical or leadership tools mentioned in depth
+- claimedAchievements: major accomplishments claimed in resume or transcript
+- workHistory: companies, years, roles
+- directQuotes: 3-5 real, verbatim quotes from the transcript showing key assertions, edge-case explanations, or admissions.
 
-    const systemPrompt = `You are orchestrating a Multi-Agent AI Interview Panel ("The Hot Seat") with 3 distinct interviewers:
-1. Alex Chen ('alex') - Principal Systems Architect: Probes distributed scale, latency, consistency, trade-offs, and microservice architecture.
-2. Sarah Lin ('sarah') - Director of Engineering: Probes leadership, STAR-format situational execution, ownership, and team empathy.
-3. Devon Vance ('devon') - Staff SRE & Pragmatist: Catches buzzwords, hand-waving assertions, tests operational debugging and simplicity.
-
-Candidate Details:
-- Name: ${config.candidateName}
-- Target Role: ${config.targetRole} (${config.jobLevel})
-- Company Context: ${config.companyContext}
-
-Analyze the candidate's last answer in parallel across all 3 agent perspectives. Generate:
-1. Secret "Backchannel Notes" (whispers between the non-speaking agents noting weaknesses, strengths, or hand-offs).
-2. Nominate the next speaker who should cross-examine or follow up based on candidate weak spots or logical leaps.
-3. Formulate a sharp, context-aware question from the nominated speaker.
-
-Respond ONLY in valid JSON matching this schema:
+Respond ONLY in valid JSON matching:
 {
-  "nextSpeaker": "alex" | "sarah" | "devon",
-  "question": "The question to ask the candidate directly",
-  "topic": "Short 2-4 word topic label",
-  "backchannelNotes": [
+  "verifiedSkills": ["Skill 1", "Skill 2"],
+  "claimedAchievements": ["Claim 1", "Claim 2"],
+  "workHistory": ["Role 1", "Role 2"],
+  "directQuotes": ["\"Quote 1\"", "\"Quote 2\""]
+}`;
+
+    const prompt = `CANDIDATE: ${candidateName}
+TARGET ROLE: ${targetRole}
+
+RESUME:
+${resumeText}
+
+TRANSCRIPT:
+${transcriptText}`;
+
+    return await this.generateJSON<CandidateProfileData['extractedFacts']>(prompt, systemInstruction);
+  }
+
+  // 2. Isolated Independent Evaluation for 1 Agent (No cross-agent leakage)
+  public async evaluateIndependently(
+    agentId: AgentId,
+    profile: CandidateProfileData
+  ): Promise<IndependentOpinion> {
+    const agent = AGENT_PROFILES[agentId];
+
+    const systemInstruction = `You are ${agent.name}, ${agent.roleTitle}.
+Your domain is: ${agent.domain}.
+Mission: ${agent.mission}
+
+IMPORTANT RULE: You are evaluating this candidate INDEPENDENTLY on your own. You have NOT seen and CANNOT see what other interviewers think.
+Every point in your assessment MUST cite a real, verbatim quote or direct fact from the transcript/resume.
+
+Stance options: "Strong Hire" | "Hire" | "Leaning No Hire" | "Reject"
+
+Respond ONLY in valid JSON matching:
+{
+  "agentId": "${agentId}",
+  "stance": "Strong Hire" | "Hire" | "Leaning No Hire" | "Reject",
+  "confidenceScore": 85, // number from 0 to 100
+  "summary": "2-3 sentence overview of your independent verdict",
+  "keyPoints": [
     {
-      "agentId": "alex" | "sarah" | "devon",
-      "targetAgentId": "alex" | "sarah" | "devon",
-      "thought": "Internal private agent assessment of the answer",
-      "flag": "weakness" | "strength" | "handoff" | "probing" | "observation",
-      "triggerPhrase": "specific phrase candidate said that triggered this thought"
+      "point": "Your specific analytical point",
+      "citedQuote": "\"Exact verbatim quote from the transcript or resume supporting this point\"",
+      "sentiment": "positive" | "concerning" | "neutral"
     }
   ]
 }`;
 
-    const userPrompt = `INTERVIEW TRANSCRIPT SO FAR:
-${formattedHistory}
+    const prompt = `CANDIDATE PROFILE:
+Name: ${profile.candidateName}
+Target Role: ${profile.targetRole} (${profile.experienceYears} years experience)
 
-CANDIDATE'S LATEST ANSWER:
-"${lastCandidateAnswer}"
+RESUME:
+${profile.resumeText}
 
-Generate the next turn with agent backchannel analysis and the next interviewer question.`;
+TRANSCRIPT:
+${profile.transcriptText}
 
-    const rawJson = await this.generateContent(userPrompt, systemPrompt);
-    const parsed = JSON.parse(rawJson);
+Provide your independent, evidence-backed evaluation.`;
 
-    return {
-      nextSpeaker: parsed.nextSpeaker || 'alex',
-      question: parsed.question,
-      topic: parsed.topic || 'System Design & Problem Solving',
-      backchannelNotes: (parsed.backchannelNotes || []).map((n: any, idx: number) => ({
-        id: `bn-live-${Date.now()}-${idx}`,
-        agentId: n.agentId || 'alex',
-        targetAgentId: n.targetAgentId,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        thought: n.thought,
-        flag: n.flag || 'observation',
-        triggerPhrase: n.triggerPhrase
-      }))
-    };
+    return await this.generateJSON<IndependentOpinion>(prompt, systemInstruction);
   }
 
-  public async conductCommitteeDebate(
-    history: ChatMessage[],
-    config: InterviewConfig
-  ): Promise<{ debateTurns: CommitteeTurn[]; evaluation: CandidateEvaluation }> {
-    const formattedHistory = history.map(m => `[${m.speaker.toUpperCase()}]: ${m.text}`).join('\n');
+  // 3. Multi-Turn Voice-Enabled Debate Step (Direct rebuttals & cross-agent responses)
+  public async generateDebateSession(
+    profile: CandidateProfileData,
+    opinions: Record<AgentId, IndependentOpinion>
+  ): Promise<DebateTurn[]> {
+    const opinionsSummary = Object.entries(opinions).map(([id, op]) => {
+      const agent = AGENT_PROFILES[id as AgentId];
+      return `[${agent.name} (${agent.roleTitle})]: Initial Stance = ${op.stance} (Confidence: ${op.confidenceScore}%)
+Summary: ${op.summary}
+Evidence Cited: ${op.keyPoints.map(k => `${k.point} (Quote: ${k.citedQuote})`).join('; ')}`;
+    }).join('\n\n');
 
-    const systemPrompt = `You are simulating an autonomous post-interview Hiring Committee debate between Alex Chen (Architect), Sarah Lin (Director of Eng), and Devon Vance (Staff Pragmatist).
-They are deliberating the candidate's interview performance for the role: ${config.targetRole} (${config.jobLevel}).
+    const systemInstruction = `You are orchestrating a live Hiring Committee Debate between 4 AI agents:
+1. Dr. Marcus Vance ('technical') - Technical Specialist
+2. Elena Rostova ('culture') - HR & Leadership Lead
+3. David Sterling ('hiring_manager') - Hiring Manager / ROI & Delivery
+4. Rachel Zane ('skeptic') - Contradiction & Red-Flag Auditor
 
-The agents must:
-1. Conduct a realistic 4-turn debate where each agent shares their vote (Strong Hire / Hire / Leaning No Hire / Reject), cites specific moments from the interview, challenges colleagues' assessments, and converges on a consensus verdict.
-2. Produce a comprehensive rubric evaluation with 4 distinct dimension scores (1-10 scale), overall score (1-100), key strengths, and growth areas.
+CRITICAL RULE FOR THE DEBATE:
+The agents must talk TO EACH OTHER.
+- At least one agent MUST directly respond to or challenge another agent's point (e.g. Rachel challenging Marcus on unverified claims, or Marcus defending technical depth).
+- At least one agent MUST adjust or evolve their opinion (responseType: 'opinion_shift' or 'agreement') based on the evidence presented by peers.
+- Generate 4 realistic, sequential debate turns with direct quotes and arguments.
 
-Respond ONLY with valid JSON with this exact structure:
+Respond ONLY in valid JSON matching:
 {
-  "debateTurns": [
+  "turns": [
     {
-      "agentId": "alex" | "sarah" | "devon",
-      "round": 1,
-      "stance": "Strong Hire" | "Hire" | "Leaning No Hire" | "Reject",
-      "confidence": 85,
-      "speech": "Detailed debate argument citing the transcript",
-      "highlightCriterion": "Criterion name"
+      "id": "deb-1",
+      "speakerId": "technical" | "culture" | "hiring_manager" | "skeptic",
+      "targetAgentId": "technical" | "culture" | "hiring_manager" | "skeptic",
+      "responseType": "challenge" | "agreement" | "clarification" | "opinion_shift",
+      "speech": "What the agent says directly to their peer, referencing evidence",
+      "revisedStance": "Strong Hire" | "Hire" | "Leaning No Hire" | "Reject",
+      "revisedConfidence": 90,
+      "stanceShiftReason": "Optional short explanation if the agent changed their mind"
+    }
+  ]
+}`;
+
+    const prompt = `CANDIDATE: ${profile.candidateName} (${profile.targetRole})
+
+INDEPENDENT AGENT OPINIONS PRIOR TO DEBATE:
+${opinionsSummary}
+
+Generate the 4-turn debate session.`;
+
+    const res = await this.generateJSON<{ turns: DebateTurn[] }>(prompt, systemInstruction);
+    return res.turns;
+  }
+
+  // 4. Final Reasoned Decision & Comprehensive Report (Non-simple averaging)
+  public async generateFinalDecisionReport(
+    profile: CandidateProfileData,
+    opinions: Record<AgentId, IndependentOpinion>,
+    debateTurns: DebateTurn[]
+  ): Promise<FinalConsensusReport> {
+    const formattedDebate = debateTurns.map(t => {
+      const speaker = AGENT_PROFILES[t.speakerId]?.name;
+      const target = t.targetAgentId ? AGENT_PROFILES[t.targetAgentId]?.name : 'Committee';
+      return `[${speaker} -> ${target}] (${t.responseType}): ${t.speech}`;
+    }).join('\n');
+
+    const systemInstruction = `You are the Committee Synthesis Judge.
+You must synthesize the candidate evaluation into a final comprehensive decision.
+
+IMPORTANT RULE: DO NOT SIMPLY AVERAGE SCORES.
+Weigh the evidence rigorously:
+- If the Skeptic Agent uncovered major factual misrepresentations, that risk outweighs pure technical claims.
+- If the candidate provided verifiable, deep edge-case engineering proofs and high culture accountability, weigh that heavily.
+- Explicitly identify any UNRESOLVED DISAGREEMENTS between the agents (e.g., leveling disputes, risk tolerance differences).
+
+Respond ONLY in valid JSON matching:
+{
+  "candidateName": "${profile.candidateName}",
+  "targetRole": "${profile.targetRole}",
+  "finalRecommendation": "Strong Hire" | "Hire" | "Leaning No Hire" | "Reject",
+  "overallConfidence": 92,
+  "decisionRationale": "Multi-sentence reasoned explanation of how the decision was reached",
+  "evidenceWeightingExplanation": "Detailed explanation of why evidence weighting was used instead of simple averaging",
+  "dimensionScores": {
+    "technicalCompetence": { "score": 9.2, "maxScore": 10, "weight": 0.35 },
+    "culturalIntegrity": { "score": 9.4, "maxScore": 10, "weight": 0.25 },
+    "businessImpactROI": { "score": 8.8, "maxScore": 10, "weight": 0.25 },
+    "riskFactorInverse": { "score": 8.5, "maxScore": 10, "weight": 0.15 }
+  },
+  "keyStrengths": [
+    { "title": "Strength Title", "detail": "Explanation", "supportingQuote": "\"Verbatim quote\"" }
+  ],
+  "criticalConcerns": [
+    { "title": "Concern Title", "detail": "Explanation", "supportingQuote": "\"Verbatim quote\"", "severity": "low" | "medium" | "high" }
+  ],
+  "unresolvedDisagreements": [
+    {
+      "topic": "Topic of disagreement",
+      "agentAPerspective": { "agentId": "technical", "point": "..." },
+      "agentBPerspective": { "agentId": "hiring_manager", "point": "..." },
+      "impactOnDecision": "How the committee resolved or balanced this trade-off"
     }
   ],
-  "evaluation": {
-    "candidateName": "${config.candidateName}",
-    "targetRole": "${config.targetRole}",
-    "overallScore": 88,
-    "hiringDecision": "Strong Hire" | "Hire" | "Leaning No Hire" | "Reject",
-    "consensusSummary": "Detailed multi-sentence summary of the committee consensus",
-    "dimensions": {
-      "systemDesign": { "name": "Distributed Architecture & Scaling", "score": 8.5, "maxScore": 10, "feedback": "..." },
-      "technicalDepth": { "name": "Technical Depth & Edge Cases", "score": 8.0, "maxScore": 10, "feedback": "..." },
-      "communicationSTAR": { "name": "Communication & STAR Execution", "score": 9.0, "maxScore": 10, "feedback": "..." },
-      "pragmatismEdgeCases": { "name": "Operational Pragmatism & SRE", "score": 8.5, "maxScore": 10, "feedback": "..." }
-    },
-    "keyStrengths": ["Strength 1", "Strength 2", "Strength 3"],
-    "growthAreas": ["Growth area 1", "Growth area 2"],
-    "interviewerVotes": {
-      "alex": { "stance": "Hire", "verdict": "..." },
-      "sarah": { "stance": "Strong Hire", "verdict": "..." },
-      "devon": { "stance": "Hire", "verdict": "..." }
-    }
+  "individualAgentFinalVotes": {
+    "technical": { "initialStance": "Hire", "finalStance": "Strong Hire", "finalVerdict": "...", "changedMind": true },
+    "culture": { "initialStance": "Strong Hire", "finalStance": "Strong Hire", "finalVerdict": "...", "changedMind": false },
+    "hiring_manager": { "initialStance": "Hire", "finalStance": "Strong Hire", "finalVerdict": "...", "changedMind": true },
+    "skeptic": { "initialStance": "Hire", "finalStance": "Hire", "finalVerdict": "...", "changedMind": false }
   }
 }`;
 
-    const userPrompt = `FULL INTERVIEW TRANSCRIPT:
-${formattedHistory}
+    const opinionsOverview = Object.entries(opinions).map(([id, op]) => 
+      `[${id}]: Initial=${op.stance}, Confidence=${op.confidenceScore}%, Summary=${op.summary}`
+    ).join('\n');
 
-Generate the Hiring Committee Debate and final Rubric Evaluation.`;
+    const prompt = `CANDIDATE: ${profile.candidateName} (${profile.targetRole})
 
-    const rawJson = await this.generateContent(userPrompt, systemPrompt);
-    const parsed = JSON.parse(rawJson);
+INITIAL INDEPENDENT AGENT OPINIONS:
+${opinionsOverview}
 
-    const debateTurns: CommitteeTurn[] = (parsed.debateTurns || []).map((t: any, idx: number) => ({
-      id: `turn-live-${Date.now()}-${idx}`,
-      agentId: t.agentId || 'alex',
-      round: t.round || 1,
-      stance: t.stance || 'Hire',
-      confidence: t.confidence || 80,
-      speech: t.speech,
-      highlightCriterion: t.highlightCriterion || 'Technical Assessment'
-    }));
+RESUME & TRANSCRIPT:
+Resume: ${profile.resumeText}
+Transcript: ${profile.transcriptText}
 
-    return {
-      debateTurns,
-      evaluation: parsed.evaluation
-    };
+DEBATE TRANSCRIPT:
+${formattedDebate}
+
+Generate the final reasoned consensus report with evidence weighting and unresolved disagreements.`;
+
+    return await this.generateJSON<FinalConsensusReport>(prompt, systemInstruction);
   }
 }

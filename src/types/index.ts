@@ -1,91 +1,89 @@
-export type InterviewerId = 'alex' | 'sarah' | 'devon';
-
-export type InterviewerMood = 'neutral' | 'impressed' | 'skeptical' | 'probing' | 'satisfied';
-
-export interface InterviewerProfile {
-  id: InterviewerId;
-  name: string;
-  title: string;
-  companyRole: string;
-  avatarBg: string;
-  accentColor: string;
-  borderColor: string;
-  primaryFocus: string;
-  bio: string;
-  speechPitch: number;
-  speechRate: number;
-}
-
-export type MessageSpeaker = InterviewerId | 'candidate' | 'system';
-
-export interface ChatMessage {
-  id: string;
-  speaker: MessageSpeaker;
-  text: string;
-  timestamp: string;
-  interviewerId?: InterviewerId;
-  questionTopic?: string;
-  audioDuration?: number;
-}
-
-export type BackchannelFlag = 'weakness' | 'strength' | 'handoff' | 'probing' | 'observation';
-
-export interface BackchannelNote {
-  id: string;
-  agentId: InterviewerId;
-  targetAgentId?: InterviewerId;
-  timestamp: string;
-  thought: string;
-  flag: BackchannelFlag;
-  triggerPhrase?: string;
-}
+export type AgentId = 'technical' | 'culture' | 'hiring_manager' | 'skeptic';
 
 export type HiringStance = 'Strong Hire' | 'Hire' | 'Leaning No Hire' | 'Reject';
 
-export interface CommitteeTurn {
-  id: string;
-  agentId: InterviewerId;
-  round: number;
-  stance: HiringStance;
-  speech: string;
-  confidence: number;
-  highlightCriterion: string;
-}
-
-export interface RubricDimension {
+export interface AgentProfile {
+  id: AgentId;
   name: string;
-  score: number; // 1 to 10
-  maxScore: number;
-  feedback: string;
+  roleTitle: string;
+  domain: string;
+  avatarBg: string;
+  accentColor: string;
+  borderColor: string;
+  speechPitch: number;
+  speechRate: number;
+  mission: string;
 }
 
-export interface CandidateEvaluation {
+export interface CandidateProfileData {
   candidateName: string;
   targetRole: string;
-  overallScore: number; // 1-100
-  hiringDecision: HiringStance;
-  consensusSummary: string;
-  dimensions: {
-    systemDesign: RubricDimension;
-    technicalDepth: RubricDimension;
-    communicationSTAR: RubricDimension;
-    pragmatismEdgeCases: RubricDimension;
+  experienceYears: number;
+  resumeText: string;
+  transcriptText: string;
+  extractedFacts: {
+    verifiedSkills: string[];
+    claimedAchievements: string[];
+    workHistory: string[];
+    directQuotes: string[];
   };
-  keyStrengths: string[];
-  growthAreas: string[];
-  interviewerVotes: Record<InterviewerId, {
-    stance: HiringStance;
-    verdict: string;
+}
+
+export interface IndependentOpinion {
+  agentId: AgentId;
+  stance: HiringStance;
+  confidenceScore: number; // 0-100%
+  summary: string;
+  keyPoints: Array<{
+    point: string;
+    citedQuote: string;
+    sentiment: 'positive' | 'concerning' | 'neutral';
   }>;
 }
 
-export interface InterviewConfig {
-  candidateName: string;
-  targetRole: string;
-  jobLevel: 'Mid-Level' | 'Senior' | 'Staff / Principal' | 'Lead / Director';
-  companyContext: string;
-  useDemoMode: boolean;
-  geminiApiKey: string;
+export type DebateResponseType = 'challenge' | 'agreement' | 'clarification' | 'opinion_shift';
+
+export interface DebateTurn {
+  id: string;
+  speakerId: AgentId;
+  targetAgentId?: AgentId;
+  responseType: DebateResponseType;
+  speech: string;
+  revisedStance?: HiringStance;
+  revisedConfidence?: number;
+  stanceShiftReason?: string;
 }
 
-export type InterviewPhase = 'setup' | 'interview' | 'committee' | 'scorecard';
+export interface UnresolvedDisagreement {
+  topic: string;
+  agentAPerspective: { agentId: AgentId; point: string };
+  agentBPerspective: { agentId: AgentId; point: string };
+  impactOnDecision: string;
+}
+
+export interface FinalConsensusReport {
+  candidateName: string;
+  targetRole: string;
+  finalRecommendation: HiringStance;
+  overallConfidence: number; // 0-100%
+  decisionRationale: string;
+  evidenceWeightingExplanation: string; // Explains why simple averaging was not used
+  dimensionScores: {
+    technicalCompetence: { score: number; maxScore: number; weight: number };
+    culturalIntegrity: { score: number; maxScore: number; weight: number };
+    businessImpactROI: { score: number; maxScore: number; weight: number };
+    riskFactorInverse: { score: number; maxScore: number; weight: number };
+  };
+  keyStrengths: Array<{ title: string; detail: string; supportingQuote: string }>;
+  criticalConcerns: Array<{ title: string; detail: string; supportingQuote: string; severity: 'low' | 'medium' | 'high' }>;
+  unresolvedDisagreements: UnresolvedDisagreement[];
+  individualAgentFinalVotes: Record<AgentId, {
+    initialStance: HiringStance;
+    finalStance: HiringStance;
+    finalVerdict: string;
+    changedMind: boolean;
+  }>;
+}
+
+export type AppMode = 'pipeline' | 'live_panel';
+export type PipelineStep = 'profile' | 'independent_review' | 'debate' | 'final_report';
