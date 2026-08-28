@@ -16,7 +16,9 @@ import { IndependentReviews } from './components/IndependentReviews';
 import { DebateRoom } from './components/DebateRoom';
 import { FinalDecisionReport } from './components/FinalDecisionReport';
 import { LiveInterviewStage } from './components/LiveInterviewStage';
-import { Sparkles, Key, Zap, ShieldCheck, FileText, Users, MessageSquare, Award, Radio } from 'lucide-react';
+import { TruthMatrix } from './components/TruthMatrix';
+import { CandidateMatrix } from './components/CandidateMatrix';
+import { Sparkles, Key, Zap, ShieldCheck, FileText, Users, MessageSquare, Award, Radio, ShieldAlert, BarChart3 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [appMode, setAppMode] = useState<ActiveAppMode>('pipeline');
@@ -145,6 +147,17 @@ export const App: React.FC = () => {
     setStep('profile');
   };
 
+  // Matrix candidate select
+  const handleSelectMatrixCandidate = (cand: SampleCandidatePreset) => {
+    setSelectedSamplePreset(cand);
+    setCandidateProfile(cand.profile);
+    setOpinions(cand.independentOpinions);
+    setDebateTurns(cand.debateTurns);
+    setFinalReport(cand.finalReport);
+    setAppMode('pipeline');
+    setStep('final_report');
+  };
+
   const STEPS_NAV = [
     { id: 'profile', label: '1. Fact Extractor', icon: FileText },
     { id: 'independent_review', label: '2. 4 Independent Agents', icon: Users },
@@ -171,36 +184,60 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Mode Switcher: Pipeline vs Live Hot Seat */}
-        <div className="flex items-center gap-1 bg-boardroom-850 p-1 rounded-2xl border border-slate-800">
+        {/* Multi-Feature Navigation Mode Tabs */}
+        <div className="flex items-center gap-1 bg-boardroom-850 p-1 rounded-2xl border border-slate-800 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setAppMode('pipeline')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
               appMode === 'pipeline'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Award className="w-3.5 h-3.5" />
-            <span>4-Agent Committee Pipeline</span>
+            <span>4-Agent Pipeline</span>
+          </button>
+
+          <button
+            onClick={() => setAppMode('truth_matrix')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              appMode === 'truth_matrix'
+                ? 'bg-amber-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-amber-300" />
+            <span>Truth Matrix</span>
+          </button>
+
+          <button
+            onClick={() => setAppMode('benchmark_matrix')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              appMode === 'benchmark_matrix'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-emerald-300" />
+            <span>Candidate Matrix</span>
           </button>
 
           <button
             onClick={() => setAppMode('live_interview')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
               appMode === 'live_interview'
                 ? 'bg-purple-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Radio className="w-3.5 h-3.5 text-pink-400" />
-            <span>Live Interactive Hot Seat</span>
+            <span>Live Hot Seat</span>
           </button>
         </div>
 
         {/* Pipeline Step Progress Indicator (when in pipeline mode) */}
         {appMode === 'pipeline' && (
-          <div className="hidden xl:flex items-center gap-1 bg-boardroom-850 p-1 rounded-xl border border-slate-800">
+          <div className="hidden 2xl:flex items-center gap-1 bg-boardroom-850 p-1 rounded-xl border border-slate-800">
             {STEPS_NAV.map((s) => {
               const Icon = s.icon;
               const isActive = step === s.id;
@@ -278,7 +315,7 @@ export const App: React.FC = () => {
 
       {/* Application Content */}
       <main className="flex-1 py-4 md:py-6">
-        {/* MODE 1: 4-AGENT COMMITTEE PIPELINE */}
+        {/* FEATURE 1: 4-AGENT COMMITTEE PIPELINE */}
         {appMode === 'pipeline' && (
           <>
             {step === 'profile' && (
@@ -313,7 +350,19 @@ export const App: React.FC = () => {
           </>
         )}
 
-        {/* MODE 2: LIVE INTERACTIVE HOT SEAT */}
+        {/* FEATURE 2: TRUTH MATRIX & CONTRADICTION AUDITOR */}
+        {appMode === 'truth_matrix' && (
+          <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+            <TruthMatrix profile={candidateProfile} candidateId={selectedSamplePreset?.id} />
+          </div>
+        )}
+
+        {/* FEATURE 3: CANDIDATE MATRIX BENCHMARK BOARD */}
+        {appMode === 'benchmark_matrix' && (
+          <CandidateMatrix onSelectCandidate={handleSelectMatrixCandidate} />
+        )}
+
+        {/* FEATURE 4: LIVE INTERACTIVE HOT SEAT */}
         {appMode === 'live_interview' && (
           <LiveInterviewStage
             candidateName={candidateProfile.candidateName}

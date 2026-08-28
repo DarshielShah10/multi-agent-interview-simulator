@@ -106,5 +106,5 @@ export interface BackchannelWhisper {
   quoteAnchor?: string;
 }
 
-export type ActiveAppMode = 'pipeline' | 'live_interview';
+export type ActiveAppMode = 'pipeline' | 'live_interview' | 'truth_matrix' | 'benchmark_matrix';
 export type PipelineStep = 'profile' | 'independent_review' | 'debate' | 'final_report';
