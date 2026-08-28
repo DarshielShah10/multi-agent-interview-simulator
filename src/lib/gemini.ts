@@ -4,13 +4,7 @@ interface AgentTurnResponse {
   nextSpeaker: InterviewerId;
   question: string;
   topic: string;
-  backchannelNotes: Array<{
-    agentId: InterviewerId;
-    targetAgentId?: InterviewerId;
-    thought: string;
-    flag: 'weakness' | 'strength' | 'handoff' | 'probing' | 'observation';
-    triggerPhrase?: string;
-  }>;
+  backchannelNotes: BackchannelNote[];
 }
 
 export class GeminiOrchestrator {

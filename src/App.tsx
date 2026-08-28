@@ -113,7 +113,6 @@ export const App: React.FC = () => {
                 <CandidateInput
                   onSubmit={handleSubmitResponse}
                   disabled={isSpeakingActive}
-                  targetRole={session.config.targetRole}
                 />
               </div>
 

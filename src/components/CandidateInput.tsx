@@ -5,13 +5,11 @@ import { SpeechToTextController } from '../lib/speech';
 interface CandidateInputProps {
   onSubmit: (text: string) => void;
   disabled?: boolean;
-  targetRole: string;
 }
 
 export const CandidateInput: React.FC<CandidateInputProps> = ({
   onSubmit,
   disabled = false,
-  targetRole,
 }) => {
   const [text, setText] = useState('');
   const [isListening, setIsListening] = useState(false);
